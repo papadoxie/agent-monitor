@@ -36,7 +36,7 @@ input::placeholder{color:var(--mute)}
 .n{margin-left:auto;color:var(--mute);font-weight:400}
 .scroll{overflow-x:auto}
 table{width:100%;border-collapse:collapse;min-width:760px;table-layout:fixed}
-th:nth-child(1){width:88px}th:nth-child(3){width:26%}th:nth-child(4){width:64px}th:nth-child(5){width:80px}th:nth-child(6){width:64px}th:nth-child(7){width:84px}th:nth-child(8){width:76px}
+th:nth-child(1){width:88px}th:nth-child(3){width:26%}th:nth-child(4){width:64px}th:nth-child(5){width:80px}th:nth-child(6){width:64px}th:nth-child(7){width:84px}th:nth-child(8){width:112px}
 th,td{text-align:left;padding:9px 16px;border-bottom:.5px solid var(--line);vertical-align:top}
 tbody tr:hover{background:var(--hover)}
 tr:last-child td{border-bottom:0}
@@ -50,7 +50,8 @@ td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
 .say{margin-top:3px;font-weight:500}
 .cmd{color:var(--mute);font-size:11px;margin-top:2px}
 code{background:var(--chip);border-radius:4px;padding:0 4px}
-.stop{border:0;border-radius:6px;padding:2px 10px;font:inherit;font-size:12px;cursor:pointer;background:var(--chip);color:var(--ink)}
+td:last-child{padding-left:0}
+.stop{white-space:nowrap;border:0;border-radius:6px;padding:2px 10px;font:inherit;font-size:12px;cursor:pointer;background:var(--chip);color:var(--ink)}
 .stop:hover{background:color-mix(in srgb,#ff453a 22%,transparent);color:#ff453a}
 .stop.arm{background:#ff453a;color:#fff}
 .stop:disabled{opacity:.5;cursor:default}

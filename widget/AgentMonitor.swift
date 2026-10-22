@@ -10,6 +10,20 @@ final class Panel: NSPanel {
     override var canBecomeKey: Bool { true }
 }
 
+/// Card that matches the system widgets: near-opaque dark/light fill, 22pt corners.
+final class CardView: NSView {
+    override var wantsUpdateLayer: Bool { true }
+    override func updateLayer() {
+        let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        layer?.backgroundColor = (dark ? NSColor(srgbRed: 52/255, green: 52/255, blue: 56/255, alpha: 1)
+                                       : NSColor(srgbRed: 1, green: 1, blue: 1, alpha: 1)).cgColor
+        layer?.cornerRadius = 22
+        layer?.cornerCurve = .continuous
+        layer?.masksToBounds = true
+    }
+    override func viewDidChangeEffectiveAppearance() { needsDisplay = true }
+}
+
 /// Transparent strip along the top of the widget so it can be dragged.
 final class DragStrip: NSView {
     override var mouseDownCanMoveWindow: Bool { true }
@@ -82,13 +96,8 @@ final class App: NSObject, NSApplicationDelegate {
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
         panel.setFrameAutosaveName("AgentMonitorWidget")
 
-        let fx = NSVisualEffectView(frame: NSRect(origin: .zero, size: size))
-        fx.material = .hudWindow
-        fx.blendingMode = .behindWindow
-        fx.state = .active
+        let fx = CardView(frame: NSRect(origin: .zero, size: size))
         fx.wantsLayer = true
-        fx.layer?.cornerRadius = 18
-        fx.layer?.masksToBounds = true
         fx.autoresizingMask = [.width, .height]
         panel.contentView = fx
 
@@ -100,7 +109,7 @@ final class App: NSObject, NSApplicationDelegate {
         fx.addSubview(web)
         web.load(URLRequest(url: URL(string: base + "/?view=widget")!))
 
-        let strip = DragStrip(frame: NSRect(x: 0, y: size.height - 34, width: size.width, height: 34))
+        let strip = DragStrip(frame: NSRect(x: 0, y: size.height - 40, width: size.width, height: 40))
         strip.autoresizingMask = [.width, .minYMargin]
         fx.addSubview(strip)
 

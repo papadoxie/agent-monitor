@@ -32,7 +32,7 @@ python3 server.py --demo     # fake data, safe for screenshots
 
 ## Desktop widget
 
-A small native app puts a compact, translucent version on your desktop and an active-agent counter (`4/8`) in the menu bar.
+A small native app puts a compact version on your desktop, styled like the built-in macOS widgets (dark or light with your system, rounded card, small-caps header, large active-agent count) and an active-agent counter (`4/8`) in the menu bar.
 
 <p align="center"><img src="docs/widget.png" alt="Desktop widget (illustration with demo data)" width="420"></p>
 

@@ -16,7 +16,7 @@ A local dashboard for every AI coding agent running on your Mac: Claude Code, Cl
 - **A one-line "what is it doing".** For Claude, the tool call in progress (`Running: npm test`, `Editing schema.sql`) or the last status line. For Codex jobs, the task and the command it is running.
 - **Several accounts at once.** Each Claude process reports the login it runs under, and Codex reports its own.
 - **Accurate labels.** `desktop chat`, `cli`, `headless (-p)`, `sdk`, plus Codex `exec` and `app-server`.
-- **Live status.** Active or idle, with CPU, memory and uptime, refreshed every 3 seconds.
+- **Live status.** Active or idle, with CPU, memory and uptime per agent, plus total agent CPU and memory at the top, refreshed every 3 seconds.
 - **Stop button.** Click **Stop**, then **Confirm?**, to send SIGTERM to an agent. If it is still running afterwards the button becomes **Force quit** (SIGKILL). Only your own processes get a button.
 - **Search** across chat names, summaries, folders, accounts and PIDs. Light and dark themes follow macOS (`?theme=light|dark` forces one).
 

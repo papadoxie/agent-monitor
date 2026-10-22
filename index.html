@@ -29,6 +29,7 @@ input::placeholder{color:var(--mute)}
 .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:20px 0 24px}
 .tile{background:var(--card);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow)}
 .tile b{display:block;font-size:28px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.tile em{display:block;font-style:normal;font-size:10px;opacity:.8}
 .tile span{color:var(--mute);font-size:11px}
 .acct{background:var(--card);border-radius:12px;margin-bottom:18px;overflow:hidden;box-shadow:var(--shadow)}
 .acct>h2{margin:0;padding:11px 16px;font-size:13px;font-weight:600;display:flex;gap:10px;align-items:center;border-bottom:.5px solid var(--line)}
@@ -99,8 +100,8 @@ function render(){
   const list=all.filter(a=>!q||JSON.stringify([a.summary,a.title,a.account,a.user,a.cwd,a.pid,a.kind,a.mode]).toLowerCase().includes(q));
   const accounts=new Set(all.map(a=>a.account)), users=new Set(all.map(a=>a.user));
   const tiles=[["Running agents",all.length],["Active now",all.filter(a=>a.status==="active").length],
-    ["Accounts",accounts.size],["macOS users",users.size],["Memory",(all.reduce((s,a)=>s+a.mem_mb,0)/1024).toFixed(1)+" GB"]];
-  $("tiles").innerHTML=tiles.map(([l,v])=>`<div class="tile"><b>${v}</b><span>${l}</span></div>`).join("");
+    ["Accounts",accounts.size],["macOS users",users.size],["CPU",all.reduce((s,a)=>s+a.cpu,0).toFixed(1)+"%",`of 1 core = 100% · ${data.cores||"?"} cores`],["Memory",(all.reduce((s,a)=>s+a.mem_mb,0)/1024).toFixed(1)+" GB"]];
+  $("tiles").innerHTML=tiles.map(([l,v,n])=>`<div class="tile"><b>${v}</b><span>${l}${n?` <em>${n}</em>`:""}</span></div>`).join("");
   const byRoot={};list.forEach(a=>(byRoot[a.root_pid]??=[]).push(a));
   const root=id=>all.find(x=>x.pid===id)||{};
   let groups;

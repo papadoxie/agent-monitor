@@ -511,7 +511,7 @@ class H(BaseHTTPRequestHandler):
             return self.send(403, b"forbidden", "text/plain")
         if path == "/api/agents":
             body = json.dumps({"ts": time.time(), "host": "macbook" if DEMO else os.uname().nodename,
-                               "me": pwd.getpwuid(os.getuid()).pw_name, "agents": demo_agents() if DEMO else scan()})
+                               "cores": os.cpu_count(), "me": pwd.getpwuid(os.getuid()).pw_name, "agents": demo_agents() if DEMO else scan()})
             self.send(200, body.encode(), "application/json")
         elif path in ("/", "/index.html"):
             with open(os.path.join(HERE, "index.html"), "rb") as f:

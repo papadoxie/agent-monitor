@@ -17,6 +17,7 @@ A local dashboard for every AI coding agent running on your Mac: Claude Code, Cl
 - **Several accounts at once.** Each Claude process reports the login it runs under, and Codex reports its own.
 - **Accurate labels.** `desktop chat`, `cli`, `headless (-p)`, `sdk`, plus Codex `exec` and `app-server`.
 - **Live status.** Active or idle, with CPU, memory and uptime, refreshed every 3 seconds.
+- **Stop button.** Click **Stop**, then **Confirm?**, to send SIGTERM to an agent. If it is still running afterwards the button becomes **Force quit** (SIGKILL). Only your own processes get a button.
 - **Search** across chat names, summaries, folders, accounts and PIDs. Light and dark themes follow macOS (`?theme=light|dark` forces one).
 
 ## Run it
@@ -31,7 +32,7 @@ python3 server.py --demo     # fake data, safe for screenshots
 
 ## How it works
 
-Everything is read from local files and the process table. It is read-only and nothing leaves your machine.
+Everything is read from local files and the process table, and nothing leaves your machine. The only write action is the Stop button.
 
 | What | Where it comes from |
 |---|---|
@@ -48,4 +49,6 @@ Everything is read from local files and the process table. It is read-only and n
 - Processes owned by other macOS users are listed, but their environment, working folder and files can only be read if the server runs with enough privileges (for example `sudo python3 server.py`).
 - Codex app servers have no per-job progress. They show a fixed label.
 - Session ownership relies on inherited environment variables. A process started with a clean environment shows up on its own.
-- The server binds to `127.0.0.1` only. Don't expose it: the page lists working folders and what your agents are doing.
+- The server binds to `127.0.0.1` only. Don't expose it: the page lists working folders and what your agents are doing, and it can stop processes.
+- Stop requests need a per-run secret token that only the served page has, a localhost `Host`/`Origin`, and a PID that is currently a detected agent you own, so other sites and stale PIDs can't trigger it. Stopping a session does not stop the agents it spawned.
+- Stop is disabled in `--demo` mode.

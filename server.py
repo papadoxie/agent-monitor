@@ -5,7 +5,7 @@ Run:  python3 server.py [--port 8787]
 Open: http://127.0.0.1:8787
 Read-only; binds to localhost only. Standard library only.
 """
-import argparse, base64, glob, json, os, pwd, re, subprocess, time
+import argparse, base64, glob, json, os, pwd, re, secrets, signal, subprocess, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -385,6 +385,9 @@ def scan():
             r["status"] = "active"
         r["summary"] = one_liner(r, r.pop("_sf"), account_home(r["user"]))
         del r["full_cmd"]
+    _termed.intersection_update(pids)
+    for r in rows:
+        r["stopping"] = r["pid"] in _termed
     for pid in [p for p in _fds if p not in pids]:
         del _fds[pid]
     _prev.clear()
@@ -472,20 +475,55 @@ class H(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _local_request(self):
+        """Reject cross-site and DNS-rebinding requests: Host and Origin must be this server."""
+        ok = {f"127.0.0.1:{PORT}", f"localhost:{PORT}"}
+        origin = self.headers.get("Origin")
+        return self.headers.get("Host") in ok and (origin is None or origin.split("://", 1)[-1] in ok)
+
+    def do_POST(self):
+        if self.path != "/api/stop":
+            return self.send(404, b"not found", "text/plain")
+        if DEMO or not self._local_request() or self.headers.get("X-Monitor-Token") != TOKEN:
+            return self.send(403, b'{"error":"forbidden"}', "application/json")
+        try:
+            req = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
+            pid = int(req["pid"])
+        except (ValueError, KeyError, TypeError):
+            return self.send(400, b'{"error":"bad request"}', "application/json")
+        # Only a currently detected agent owned by us may be signalled (guards against PID reuse and arbitrary pids).
+        target = next((r for r in scan() if r["pid"] == pid), None)
+        if not target or target["user"] != pwd.getpwuid(os.getuid()).pw_name:
+            return self.send(404, b'{"error":"not a running agent you own"}', "application/json")
+        sig = signal.SIGKILL if pid in _termed else signal.SIGTERM
+        try:
+            os.kill(pid, sig)
+        except ProcessLookupError:
+            return self.send(200, b'{"ok":true,"gone":true}', "application/json")
+        except PermissionError:
+            return self.send(403, b'{"error":"permission denied"}', "application/json")
+        _termed.add(pid)
+        self.send(200, json.dumps({"ok": True, "signal": sig.name}).encode(), "application/json")
+
     def do_GET(self):
         path = self.path.split("?", 1)[0]
+        if not self._local_request():
+            return self.send(403, b"forbidden", "text/plain")
         if path == "/api/agents":
             body = json.dumps({"ts": time.time(), "host": "macbook" if DEMO else os.uname().nodename,
                                "me": pwd.getpwuid(os.getuid()).pw_name, "agents": demo_agents() if DEMO else scan()})
             self.send(200, body.encode(), "application/json")
         elif path in ("/", "/index.html"):
             with open(os.path.join(HERE, "index.html"), "rb") as f:
-                self.send(200, f.read(), "text/html; charset=utf-8")
+                self.send(200, f.read().replace(b"__TOKEN__", b"" if DEMO else TOKEN.encode()), "text/html; charset=utf-8")
         else:
             self.send(404, b"not found", "text/plain")
 
 
 DEMO = False
+TOKEN = secrets.token_urlsafe(24)  # per-run secret; only the served page knows it
+_termed = set()  # pids already sent SIGTERM; the next stop on them is SIGKILL
+PORT = 8787
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
@@ -493,5 +531,6 @@ if __name__ == "__main__":
     ap.add_argument("--port", type=int, default=8787)
     args = ap.parse_args()
     port, DEMO = args.port, args.demo
+    PORT = port
     print(f"Agent Monitor on http://127.0.0.1:{port}")
     ThreadingHTTPServer(("127.0.0.1", port), H).serve_forever()

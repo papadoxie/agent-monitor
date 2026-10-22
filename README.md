@@ -30,6 +30,23 @@ python3 server.py --port 9000
 python3 server.py --demo     # fake data, safe for screenshots
 ```
 
+## Desktop widget
+
+A small native app puts a compact, translucent version on your desktop and an active-agent counter (`4/8`) in the menu bar.
+
+<p align="center"><img src="docs/widget.png" alt="Desktop widget (illustration with demo data)" width="420"></p>
+
+```sh
+widget/build.sh                      # needs only the Xcode Command Line Tools (swiftc)
+open widget/build/AgentMonitor.app
+```
+
+- It sits on the desktop beneath your windows, on every Space. Drag the top edge to move it, drag the borders to resize. It remembers where you put it.
+- The menu bar item can **Show / Hide**, **Float Above Windows**, **Open Full Dashboard** and **Quit**.
+- The app starts the bundled server itself, and reuses one if it is already running on port 8787.
+- To start it at login, add `AgentMonitor.app` under System Settings → General → Login Items.
+- It is an ad-hoc signed app, not a WidgetKit widget. Those need full Xcode and a signing identity.
+
 ## How it works
 
 Everything is read from local files and the process table, and nothing leaves your machine. The only write action is the Stop button.

@@ -43,6 +43,7 @@ tbody tr:hover{background:var(--hover)}
 tr:last-child td{border-bottom:0}
 th{color:var(--mute);font-size:11px;font-weight:500}
 td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.chip.model{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent)}
 .chip{background:var(--chip);border-radius:5px;padding:1px 7px;font-size:11px;white-space:nowrap}
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;background:var(--idle)}
 .dot.active{background:var(--ok)}
@@ -129,13 +130,13 @@ function renderWidget(){
   const act=all.filter(a=>a.status==="active").length,cpu=all.reduce((s,a)=>s+a.cpu,0),mem=all.reduce((s,a)=>s+a.mem_mb,0)/1024;
   const rows=Object.entries(byRoot).map(([id,rs])=>{const r=all.find(x=>x.pid===+id)||rs[0];
     const live=rs.filter(x=>x.status==="active"),lead=live.find(x=>x.summary)||rs.find(x=>x.summary)||r;
-    return {id:+id,live:live.length,n:rs.length,kids:rs.filter(x=>x.pid!==r.pid),title:r.title||`${r.kind} ${r.mode}`,line:lead.summary||`${lead.kind} ${lead.mode}`}})
+    return {id:+id,model:r.model,live:live.length,n:rs.length,kids:rs.filter(x=>x.pid!==r.pid),title:r.title||`${r.kind} ${r.mode}`,line:lead.summary||`${lead.kind} ${lead.mode}`}})
     .sort((a,b)=>b.live-a.live||b.n-a.n);
-  const kid=k=>`<div class="w-kid" style="margin-left:${Math.max(0,k.depth-1)*12}px"><span class="dot ${k.status==="active"?"active":""}"></span><span class="w-kt">${k.title?`${esc(k.title)}<i>${esc(k.kind)} ${esc(k.mode)}</i>`:esc(k.kind+" "+k.mode)}</span><span class="w-ks">${esc(k.summary||k.cmd)}</span></div>`;
+  const kid=k=>`<div class="w-kid" style="margin-left:${Math.max(0,k.depth-1)*12}px"><span class="dot ${k.status==="active"?"active":""}"></span><span class="w-kt">${k.title?`${esc(k.title)}<i>${esc(k.model||k.kind+" "+k.mode)}</i>`:esc(k.kind+" "+k.mode)}</span><span class="w-ks">${esc(k.summary||k.cmd)}</span></div>`;
   const y=$("w").scrollTop;
   $("w").innerHTML=`<div class="w-head"><div><div class="w-cap">Agent Monitor</div><div class="w-big"><b>${act}</b><span>active<br>of ${all.length}</span></div></div><div class="w-meta">CPU ${cpu.toFixed(0)}%<br>${mem.toFixed(1)} GB</div></div>`+
     (rows.length?rows.map(r=>{const has=r.kids.length>0,open=has&&openW.has(r.id);
-      return `<div class="w-row${has?" has":""}${open?" open":""}" ${has?`data-id="${r.id}"`:""}><span class="dot ${r.live?"active":""}"></span><span class="w-t">${esc(r.title)}</span><span class="w-n">${has?`<span class="w-chev">›</span>${r.n} agents`:""}</span><span class="w-s">${esc(r.line)}</span>${open?`<div class="w-kids">${r.kids.map(kid).join("")}</div>`:""}</div>`}).join(""):`<div class="w-empty">No running agents</div>`);
+      return `<div class="w-row${has?" has":""}${open?" open":""}" ${has?`data-id="${r.id}"`:""}><span class="dot ${r.live?"active":""}"></span><span class="w-t">${esc(r.title)}</span><span class="w-n">${[r.model,has?`<span class="w-chev">›</span>${r.n} agents`:""].filter(Boolean).join(" · ")}</span><span class="w-s">${esc(r.line)}</span>${open?`<div class="w-kids">${r.kids.map(kid).join("")}</div>`:""}</div>`}).join(""):`<div class="w-empty">No running agents</div>`);
   $("w").scrollTop=y}
 document.addEventListener("click",e=>{const row=e.target.closest(".w-row.has");if(!WIDGET||!row)return;
   const id=+row.dataset.id;openW.has(id)?openW.delete(id):openW.add(id);renderWidget()});
@@ -144,7 +145,7 @@ function render(){
   if(WIDGET)return renderWidget();
   const q=$("q").value.toLowerCase();
   const all=data.agents;
-  const list=all.filter(a=>!q||JSON.stringify([a.summary,a.title,a.account,a.user,a.cwd,a.pid,a.kind,a.mode]).toLowerCase().includes(q));
+  const list=all.filter(a=>!q||JSON.stringify([a.model,a.summary,a.title,a.account,a.user,a.cwd,a.pid,a.kind,a.mode]).toLowerCase().includes(q));
   const accounts=new Set(all.map(a=>a.account)), users=new Set(all.map(a=>a.user));
   const tiles=[["Running agents",all.length],["Active now",all.filter(a=>a.status==="active").length],
     ["Accounts",accounts.size],["macOS users",users.size],["CPU",all.reduce((s,a)=>s+a.cpu,0).toFixed(1)+"%",`of 1 core = 100% · ${data.cores||"?"} cores`],["Memory",(all.reduce((s,a)=>s+a.mem_mb,0)/1024).toFixed(1)+" GB"]];
@@ -164,7 +165,7 @@ function render(){
     <div class="scroll"><table><thead><tr><th>Status</th><th>Agent</th><th>Working folder</th><th>PID</th><th>Uptime</th><th>CPU</th><th>Mem</th><th></th></tr></thead><tbody>`+
     rows.map(a=>{const ind=grp==="session"&&a.depth?`<span class="tree" style="margin-left:${(a.depth-1)*16}px">↳</span>`:"";
       return `<tr><td><span class="dot ${a.status}"></span>${a.status}</td>
-      <td>${ind}<span class="chip">${esc(a.kind)}</span> <span class="chip">${esc(a.mode)}</span>${a.child&&grp==="account"?' <span class="chip">sub</span>':""}${a.session_id&&grp==="session"?` <span class="sid">${esc(a.title||a.session_id.slice(0,8))}</span>`:""}${a.summary?`<div class="say">${esc(a.summary)}</div>`:""}<div class="cmd">${esc(a.cmd)}</div></td>
+      <td>${ind}<span class="chip">${esc(a.kind)}</span> <span class="chip">${esc(a.mode)}</span>${a.model?` <span class="chip model">${esc(a.model)}</span>`:""}${a.child&&grp==="account"?' <span class="chip">sub</span>':""}${a.session_id&&grp==="session"?` <span class="sid">${esc(a.title||a.session_id.slice(0,8))}</span>`:""}${a.summary?`<div class="say">${esc(a.summary)}</div>`:""}<div class="cmd">${esc(a.cmd)}</div></td>
       <td class="path">${esc(short(a.cwd))}${a.config_dir?`<div class="cmd">config: ${esc(short(a.config_dir))}</div>`:""}</td>
       <td class="num">${a.pid}</td><td class="num">${dur(a.up)}</td><td class="num">${a.cpu.toFixed(1)}%</td><td class="num">${a.mem_mb} MB</td><td>${stopBtn(a)}</td></tr>`}).join("")+
     `</tbody></table></div></div>`).join(""):`<div class="empty">${all.length?"No agents match the filter.":"No running agents found."}</div>`;

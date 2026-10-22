@@ -163,6 +163,7 @@ def transcript_state(home, sid):
                 f.seek(max(0, st.st_size - 300_000))
                 lines = f.read().decode("utf-8", "ignore").splitlines()[1:]
             now_doing = last_text = None
+            models = [m for m in re.findall(r'"model":"([^"]+)"', "\n".join(lines)) if not m.startswith("<")]
             for ln in reversed(lines):
                 if '"type":"assistant"' not in ln and '"type":"user"' not in ln:
                     continue
@@ -182,12 +183,12 @@ def transcript_state(home, sid):
                         last_text = _clip(b["text"].split("\n\n")[0] if len(b["text"]) > 400 else b["text"])
                 if now_doing or last_text:
                     break
-            val = (now_doing, last_text)
+            val = (now_doing, last_text, models[-1] if models else None)
             _cache[key] = ((st.st_mtime, st.st_size), val)
             return val
         except Exception:
             pass
-    return (None, None)
+    return (None, None, None)
 
 
 def desktop_summary(home, cli_sid):
@@ -262,11 +263,67 @@ def codex_job_line(pid):
     return " — ".join(x for x in (task, now) if x) or None
 
 
+def pretty_model(m):
+    """claude-opus-5-5 -> 'Opus 5.5'; aliases like 'sonnet' -> 'Sonnet'; anything else is shown as-is."""
+    if not m:
+        return None
+    m = re.sub(r"\[.*?\]$", "", m.strip())
+    g = re.match(r"claude-([a-z]+)-(\d+)(?:-(\d{1,2}))?(?:-\d{8})?$", m)
+    if g:
+        return f"{g.group(1).capitalize()} {g.group(2)}" + (f".{g.group(3)}" if g.group(3) else "")
+    g = re.match(r"claude-(\d+)(?:-(\d{1,2}))?-([a-z]+)", m)  # old order: claude-3-5-sonnet
+    if g:
+        return f"{g.group(3).capitalize()} {g.group(1)}" + (f".{g.group(2)}" if g.group(2) else "")
+    return m.capitalize() if m in ("sonnet", "opus", "haiku", "fable") else m
+
+
+def desktop_model(home, cli_sid):
+    base = os.path.join(home, "Library", "Application Support", "Claude", "claude-code-sessions")
+    for p in glob.glob(os.path.join(base, "*", "*", "local_*.json")):
+        d = read_json(p) or {}
+        if d.get("cliSessionId") == cli_sid:
+            return d.get("model")
+    return None
+
+
+def model_of(r, sf, home):
+    """Model an agent is running: latest model in its transcript, else Desktop's record, else its --model flag."""
+    cmd = r["full_cmd"]
+    if r["kind"] == "claude":
+        sid = (sf or {}).get("sessionId")
+        m = (transcript_state(home, sid)[2] if sid else None) or (desktop_model(home, sid) if sid else None)
+        if not m:
+            g = re.search(r"--model[ =](\S+)", cmd)
+            m = g.group(1) if g else None
+        return pretty_model(m)
+    if r["kind"] == "codex" and " exec " in cmd:
+        model = effort = None
+        _, log = std_files(r["pid"])
+        try:
+            if log:
+                with open(log, errors="ignore") as f:
+                    head = f.read(3000)
+                g = re.search(r"^model:\s*(\S+)", head, re.M)
+                model = g.group(1) if g else None
+                g = re.search(r"^reasoning effort:\s*(\S+)", head, re.M)
+                effort = g.group(1) if g else None
+        except OSError:
+            pass
+        if not model:
+            g = re.search(r'-c\s+model="?([^\s"]+)', cmd) or re.search(r"\s-m\s+(\S+)", cmd)
+            model = g.group(1) if g else None
+        if not effort:
+            g = re.search(r"model_reasoning_effort=\"?(\w+)", cmd)
+            effort = g.group(1) if g else None
+        return " · ".join(x for x in (model, effort) if x) or None
+    return None
+
+
 def one_liner(r, sf, home):
     """One line on what this agent is doing, from local files only (nothing leaves the machine)."""
     if r["kind"] == "claude" and sf:
         sid = sf.get("sessionId")
-        doing, last = transcript_state(home, sid) if sid else (None, None)
+        doing, last, _ = transcript_state(home, sid) if sid else (None, None, None)
         if sf.get("status") == "busy" or r["status"] == "active":
             if doing:
                 return doing
@@ -383,7 +440,9 @@ def scan():
         r["cmd"] = re.sub(r"^.*?/(claude|codex|gemini|aider)(?= |$)", r"\1", r["cmd"])[:240]
         if r["_sf"] and r["_sf"].get("status") == "busy":
             r["status"] = "active"
-        r["summary"] = one_liner(r, r.pop("_sf"), account_home(r["user"]))
+        sf_, home_ = r.pop("_sf"), account_home(r["user"])
+        r["summary"] = one_liner(r, sf_, home_)
+        r["model"] = model_of(r, sf_, home_)
         del r["full_cmd"]
     _termed.intersection_update(pids)
     for r in rows:
@@ -446,20 +505,20 @@ def scan():
 
 def demo_agents():
     """Synthetic data for screenshots (python3 server.py --demo)."""
-    def a(pid, parent, root, depth, acct, kind, mode, status, title, summary, cwd, up, cpu, mem, sid=None, ep=None, user="alex", cmd=None):
+    def a(pid, parent, root, depth, acct, kind, mode, status, title, summary, cwd, up, cpu, mem, sid=None, ep=None, user="alex", cmd=None, model=None):
         return dict(pid=pid, ppid=parent or 1, user=user, up=up, cpu=cpu, ct=0, mem_mb=mem, kind=kind, cmd=cmd or kind,
                     cwd=cwd, config_dir=None, account=acct, child=bool(parent), mode=mode, status=status,
                     session_id=sid, entrypoint=ep, title=title, summary=summary, parent_pid=parent,
-                    root_pid=root, depth=depth)
+                    root_pid=root, depth=depth, model=model)
     w, g = "alex@acme.dev", "alex.dev@gmail.com"
     return [
-        a(4101, None, 4101, 0, w, "claude", "desktop chat", "active", "Checkout API refactor", "Running: npm test -- orders", "/Users/alex/code/shop-api", 9300, 6.2, 612, "9f1c2ab4", "claude-desktop", cmd="claude --output-format stream-json --verbose"),
-        a(4188, 4101, 4101, 1, w, "claude", "headless (-p)", "active", "orders-migration-3f", "Editing 0042_add_order_status.sql", "/Users/alex/code/shop-api/.claude/worktrees/orders", 2100, 3.1, 340, "c77d90e1", "claude-desktop", cmd="claude -p --model sonnet --output-format stream-json"),
-        a(4230, 4101, 4101, 1, "alex@acme.dev", "codex", "exec", "active", None, "Review the orders migration — Running: rg \"order_status\" src", "/Users/alex/code/shop-api", 840, 4.4, 280, cmd="codex exec -s read-only -C /Users/alex/code/shop-api"),
-        a(4377, None, 4377, 0, w, "claude", "desktop chat", "idle", "Docs site redesign", "Hero section done; waiting on feedback for the pricing table", "/Users/alex/code/docs-site", 51200, 0.0, 480, "21ab55d0", "claude-desktop", cmd="claude --output-format stream-json --verbose"),
-        a(4512, None, 4512, 0, g, "claude", "cli", "active", "Rust CLI: add --json flag", "Searching: fn parse_args", "/Users/alex/side/ripgrep-lite", 1300, 2.0, 310, "5e08fa13", "cli", cmd="claude"),
-        a(4560, 4512, 4512, 1, g, "claude", "sdk", "idle", "Benchmark harness", "Benchmarks finished; summarising results", "/Users/alex/side/ripgrep-lite/bench", 600, 0.0, 190, "b2d61c9e", "sdk-ts", cmd="claude --output-format stream-json (claude-agent-sdk)"),
-        a(4801, None, 4801, 0, g, "claude", "cli", "idle", "Weekend game jam notes", None, "/Users/alex/side/jam", 86400 * 2 + 3600, 0.0, 250, "0d4e7a22", "cli", cmd="claude"),
+        a(4101, None, 4101, 0, w, "claude", "desktop chat", "active", "Checkout API refactor", "Running: npm test -- orders", "/Users/alex/code/shop-api", 9300, 6.2, 612, "9f1c2ab4", "claude-desktop", cmd="claude --output-format stream-json --verbose", model="Opus 5.5"),
+        a(4188, 4101, 4101, 1, w, "claude", "headless (-p)", "active", "orders-migration-3f", "Editing 0042_add_order_status.sql", "/Users/alex/code/shop-api/.claude/worktrees/orders", 2100, 3.1, 340, "c77d90e1", "claude-desktop", cmd="claude -p --model sonnet --output-format stream-json", model="Sonnet 5.5"),
+        a(4230, 4101, 4101, 1, "alex@acme.dev", "codex", "exec", "active", None, "Review the orders migration — Running: rg \"order_status\" src", "/Users/alex/code/shop-api", 840, 4.4, 280, cmd="codex exec -s read-only -C /Users/alex/code/shop-api", model="gpt-6-astra · high"),
+        a(4377, None, 4377, 0, w, "claude", "desktop chat", "idle", "Docs site redesign", "Hero section done; waiting on feedback for the pricing table", "/Users/alex/code/docs-site", 51200, 0.0, 480, "21ab55d0", "claude-desktop", cmd="claude --output-format stream-json --verbose", model="Opus 5.5"),
+        a(4512, None, 4512, 0, g, "claude", "cli", "active", "Rust CLI: add --json flag", "Searching: fn parse_args", "/Users/alex/side/ripgrep-lite", 1300, 2.0, 310, "5e08fa13", "cli", cmd="claude", model="Sonnet 5.5"),
+        a(4560, 4512, 4512, 1, g, "claude", "sdk", "idle", "Benchmark harness", "Benchmarks finished; summarising results", "/Users/alex/side/ripgrep-lite/bench", 600, 0.0, 190, "b2d61c9e", "sdk-ts", cmd="claude --output-format stream-json (claude-agent-sdk)", model="Haiku 4.5"),
+        a(4801, None, 4801, 0, g, "claude", "cli", "idle", "Weekend game jam notes", None, "/Users/alex/side/jam", 86400 * 2 + 3600, 0.0, 250, "0d4e7a22", "cli", cmd="claude", model="Sonnet 5.5"),
         a(5003, None, 5003, 0, "alex@acme.dev", "codex", "app-server", "idle", None, "Codex app server (background service)", "/Users/alex/code/shop-api", 86400 * 5, 0.0, 120, cmd="codex app-server --listen unix://"),
     ]
 

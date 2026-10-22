@@ -71,6 +71,16 @@ html.widget,html.widget body{background:transparent}
 .w-t{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .w-n{color:var(--mute);font-size:11px;white-space:nowrap}
 .w-s{grid-column:2/4;color:var(--mute);font-size:11px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.w-row.has{cursor:pointer}
+.w-row.has:hover{background:var(--line)}
+.w-chev{display:inline-block;margin-right:4px;color:var(--mute);transition:transform .15s}
+.w-row.open .w-chev{transform:rotate(90deg)}
+.w-kids{grid-column:1/4;margin-top:6px;padding-top:6px;border-top:.5px solid var(--line)}
+.w-kid{display:grid;grid-template-columns:10px 1fr;gap:1px 8px;padding:4px 0}
+.w-kid .dot{margin:4px 0 0}
+.w-kt{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.w-kt i{font-style:normal;color:var(--mute);font-weight:400;margin-left:6px}
+.w-ks{grid-column:2;color:var(--mute);font-size:11px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .w-empty{color:var(--mute);text-align:center;padding:40px 0}
 </style>
 </head>
@@ -109,16 +119,22 @@ async function stopAgent(pid,btn){
 document.addEventListener("click",e=>{const b=e.target.closest(".stop");if(!b)return;const pid=+b.dataset.pid;
   if(armed===pid){clearTimeout(armTimer);armed=null;stopAgent(pid,b)}
   else{armed=pid;clearTimeout(armTimer);armTimer=setTimeout(()=>{armed=null;render()},3000);render()}});
+const openW=new Set((new URLSearchParams(location.search).get("open")||"").split(",").filter(Boolean).map(Number));
 function renderWidget(){
   const all=data.agents,byRoot={};all.forEach(a=>(byRoot[a.root_pid]??=[]).push(a));
   const act=all.filter(a=>a.status==="active").length,cpu=all.reduce((s,a)=>s+a.cpu,0),mem=all.reduce((s,a)=>s+a.mem_mb,0)/1024;
   const rows=Object.entries(byRoot).map(([id,rs])=>{const r=all.find(x=>x.pid===+id)||rs[0];
-    const where=short(r.cwd).split("/").filter(Boolean).pop()||r.kind;
     const live=rs.filter(x=>x.status==="active"),lead=live.find(x=>x.summary)||rs.find(x=>x.summary)||r;
-    return {live:live.length,n:rs.length,title:r.title||`${r.kind} ${r.mode}`,line:lead.summary||`${lead.kind} ${lead.mode}`}})
+    return {id:+id,live:live.length,n:rs.length,kids:rs.filter(x=>x.pid!==r.pid),title:r.title||`${r.kind} ${r.mode}`,line:lead.summary||`${lead.kind} ${lead.mode}`}})
     .sort((a,b)=>b.live-a.live||b.n-a.n);
+  const kid=k=>`<div class="w-kid" style="margin-left:${Math.max(0,k.depth-1)*12}px"><span class="dot ${k.status==="active"?"active":""}"></span><span class="w-kt">${k.title?`${esc(k.title)}<i>${esc(k.kind)} ${esc(k.mode)}</i>`:esc(k.kind+" "+k.mode)}</span><span class="w-ks">${esc(k.summary||k.cmd)}</span></div>`;
+  const y=$("w").scrollTop;
   $("w").innerHTML=`<div class="w-top"><b>Agent Monitor</b><span class="w-stats">${act}/${all.length} active · ${cpu.toFixed(0)}% CPU · ${mem.toFixed(1)} GB</span></div>`+
-    (rows.length?rows.map(r=>`<div class="w-row"><span class="dot ${r.live?"active":""}"></span><span class="w-t">${esc(r.title)}</span><span class="w-n">${r.n>1?r.n+" agents":""}</span><span class="w-s">${esc(r.line)}</span></div>`).join(""):`<div class="w-empty">No running agents</div>`)}
+    (rows.length?rows.map(r=>{const has=r.kids.length>0,open=has&&openW.has(r.id);
+      return `<div class="w-row${has?" has":""}${open?" open":""}" ${has?`data-id="${r.id}"`:""}><span class="dot ${r.live?"active":""}"></span><span class="w-t">${esc(r.title)}</span><span class="w-n">${has?`<span class="w-chev">›</span>${r.n} agents`:""}</span><span class="w-s">${esc(r.line)}</span>${open?`<div class="w-kids">${r.kids.map(kid).join("")}</div>`:""}</div>`}).join(""):`<div class="w-empty">No running agents</div>`);
+  $("w").scrollTop=y}
+document.addEventListener("click",e=>{const row=e.target.closest(".w-row.has");if(!WIDGET||!row)return;
+  const id=+row.dataset.id;openW.has(id)?openW.delete(id):openW.add(id);renderWidget()});
 function render(){
   if(!data)return;
   if(WIDGET)return renderWidget();

@@ -41,6 +41,7 @@ widget/build.sh                      # needs only the Xcode Command Line Tools (
 open widget/build/AgentMonitor.app
 ```
 
+- Click a session card to expand it and see the sub-agents it spawned.
 - It sits on the desktop beneath your windows, on every Space. Drag the top edge to move it, drag the borders to resize. It remembers where you put it.
 - The menu bar item can **Show / Hide**, **Float Above Windows**, **Open Full Dashboard** and **Quit**.
 - The app starts the bundled server itself, and reuses one if it is already running on port 8787.

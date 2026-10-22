@@ -86,6 +86,7 @@ html.widget,html.widget body{background:transparent}
 .w-kt{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .w-kt i{font-style:normal;color:var(--mute);font-weight:400;margin-left:6px;font-size:11px}
 .w-ks{grid-column:2;color:var(--mute);font-size:11px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.w-mod{color:var(--accent);font-weight:500}
 .w-empty{color:var(--mute);text-align:center;padding:40px 0}
 </style>
 </head>
@@ -132,11 +133,11 @@ function renderWidget(){
     const live=rs.filter(x=>x.status==="active"),lead=live.find(x=>x.summary)||rs.find(x=>x.summary)||r;
     return {id:+id,model:r.model,live:live.length,n:rs.length,kids:rs.filter(x=>x.pid!==r.pid),title:r.title||`${r.kind} ${r.mode}`,line:lead.summary||`${lead.kind} ${lead.mode}`}})
     .sort((a,b)=>b.live-a.live||b.n-a.n);
-  const kid=k=>`<div class="w-kid" style="margin-left:${Math.max(0,k.depth-1)*12}px"><span class="dot ${k.status==="active"?"active":""}"></span><span class="w-kt">${k.title?`${esc(k.title)}<i>${esc(k.model||k.kind+" "+k.mode)}</i>`:esc(k.kind+" "+k.mode)}</span><span class="w-ks">${esc(k.summary||k.cmd)}</span></div>`;
+  const kid=k=>`<div class="w-kid" style="margin-left:${Math.max(0,k.depth-1)*12}px"><span class="dot ${k.status==="active"?"active":""}"></span><span class="w-kt">${k.title?`${esc(k.title)}<i>${esc(k.kind)} ${esc(k.mode)}</i>`:esc(k.kind+" "+k.mode)}</span><span class="w-ks">${k.model?`<span class="w-mod">${esc(k.model)}</span> · `:""}${esc(k.summary||k.cmd)}</span></div>`;
   const y=$("w").scrollTop;
   $("w").innerHTML=`<div class="w-head"><div><div class="w-cap">Agent Monitor</div><div class="w-big"><b>${act}</b><span>active<br>of ${all.length}</span></div></div><div class="w-meta">CPU ${cpu.toFixed(0)}%<br>${mem.toFixed(1)} GB</div></div>`+
     (rows.length?rows.map(r=>{const has=r.kids.length>0,open=has&&openW.has(r.id);
-      return `<div class="w-row${has?" has":""}${open?" open":""}" ${has?`data-id="${r.id}"`:""}><span class="dot ${r.live?"active":""}"></span><span class="w-t">${esc(r.title)}</span><span class="w-n">${[r.model,has?`<span class="w-chev">›</span>${r.n} agents`:""].filter(Boolean).join(" · ")}</span><span class="w-s">${esc(r.line)}</span>${open?`<div class="w-kids">${r.kids.map(kid).join("")}</div>`:""}</div>`}).join(""):`<div class="w-empty">No running agents</div>`);
+      return `<div class="w-row${has?" has":""}${open?" open":""}" ${has?`data-id="${r.id}"`:""}><span class="dot ${r.live?"active":""}"></span><span class="w-t">${esc(r.title)}</span><span class="w-n">${has?`<span class="w-chev">›</span>${r.n} agents`:""}</span><span class="w-s">${r.model?`<span class="w-mod">${esc(r.model)}</span> · `:""}${esc(r.line)}</span>${open?`<div class="w-kids">${r.kids.map(kid).join("")}</div>`:""}</div>`}).join(""):`<div class="w-empty">No running agents</div>`);
   $("w").scrollTop=y}
 document.addEventListener("click",e=>{const row=e.target.closest(".w-row.has");if(!WIDGET||!row)return;
   const id=+row.dataset.id;openW.has(id)?openW.delete(id):openW.add(id);renderWidget()});

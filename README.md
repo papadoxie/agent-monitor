@@ -15,7 +15,7 @@ A local dashboard for every AI coding agent running on your Mac: Claude Code, Cl
 - **Chat names.** Sessions show the name you gave them in Claude Desktop, or the auto-generated title.
 - **A one-line "what is it doing".** For Claude, the tool call in progress (`Running: npm test`, `Editing schema.sql`) or the last status line. For Codex jobs, the task and the command it is running.
 - **Several accounts at once.** Each Claude process reports the login it runs under, and Codex reports its own.
-- **Model per agent.** `Opus 5.5`, `Sonnet 5.5`, `Haiku 4.5`, or `gpt-6-astra · high` for Codex. It is the model of the latest reply in the transcript, so a mid-session `/model` switch shows up.
+- **Model and reasoning effort per agent.** `Opus 5.5 · high`, `Sonnet 5.5 · medium`, or `gpt-6-astra · high` for Codex. Both come from the latest reply in the transcript, so a mid-session `/model` or `/effort` switch shows up.
 - **Accurate labels.** `desktop chat`, `cli`, `headless (-p)`, `sdk`, plus Codex `exec` and `app-server`.
 - **Live status.** Active or idle, with CPU, memory and uptime per agent, plus total agent CPU and memory at the top, refreshed every 3 seconds.
 - **Stop button.** Click **Stop**, then **Confirm?**, to send SIGTERM to an agent. If it is still running afterwards the button becomes **Force quit** (SIGKILL). Only your own processes get a button.
@@ -59,7 +59,7 @@ Everything is read from local files and the process table, and nothing leaves yo
 | Owning session | Parent process chain, falling back to the `CLAUDE_PID` / `CLAUDE_CODE_SESSION_ID` a child inherits |
 | Chat name, mode | `~/.claude/sessions/<pid>.json`, Claude Desktop's session store, transcript titles |
 | Claude activity | Tail of the session transcript in `~/.claude/projects/` |
-| Model | Latest `model` in the Claude transcript, else Claude Desktop's session record or `--model`; Codex job log header |
+| Model, effort | Latest `model` and `effort` in the Claude transcript, else `--model` / `--effort` or Claude Desktop's session record; Codex job log header |
 | Claude account | `CLAUDE_CODE_USER_EMAIL` in the process environment, else `~/.claude.json` |
 | Codex activity | The job's brief (stdin) and live log (stdout), found with `lsof` |
 | Codex account | `~/.codex/auth.json` |
